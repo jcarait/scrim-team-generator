@@ -4,11 +4,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import Section from '@/components/layout/section';
 import { shuffle } from '@vitest/utils';
+import GameCards from '@/components/core/game-cards';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-type Game = {
+export type Game = {
   id: string;
   name: string;
   teams: Team[];
@@ -21,55 +22,57 @@ type Player = {
 };
 
 type Team = {
-  [key: string]: Player[];
+  id: string;
+  name: string;
+  players: Player[];
 };
 
 const PLAYERS_PER_GAME = 10;
 const TEAMS = 2;
 const PLAYERS_PER_TEAM = PLAYERS_PER_GAME / TEAMS;
 
-const initialPlayers = ['Jono', 'Gel', 'Matt', 'Raimie', 'Qwayne', 'El', 'John', 'Mark', 'Matthew', 'Luke', 'Thad', 'Chad', 'Esther', 'Jude', 'Paul'];
+// const initialPlayers = ['Jono', 'Gel', 'Matt', 'Raimie', 'Qwayne', 'El', 'John', 'Mark', 'Matthew', 'Luke', 'Thad', 'Chad', 'Esther', 'Jude', 'Paul'];
+//
+// // Make a list of 50 initial players with unique names of people
+// const initialPlayers35 = [
+//   ...initialPlayers,
+//   'Alice',
+//   'Bob',
+//   'Charlie',
+//   'David',
+//   'Eve',
+//   'Frank',
+//   'Grace',
+//   'Heidi',
+//   'Ivan',
+//   'Judy',
+//   'Karl',
+//   'Leo',
+//   'Mallory',
+//   'Nina',
+//   'Oscar',
+//   'Peggy',
+//   'Quentin',
+//   'Rupert',
+//   'Sybil',
+//   'Trent',
+// ];
 
-// Make a list of 50 initial players with unique names of people
-const initialPlayers35 = [
-  ...initialPlayers,
-  'Alice',
-  'Bob',
-  'Charlie',
-  'David',
-  'Eve',
-  'Frank',
-  'Grace',
-  'Heidi',
-  'Ivan',
-  'Judy',
-  'Karl',
-  'Leo',
-  'Mallory',
-  'Nina',
-  'Oscar',
-  'Peggy',
-  'Quentin',
-  'Rupert',
-  'Sybil',
-  'Trent',
-];
-
-export function Generator() {
-  const setupInitialPlayers = (): Player[] => {
-    return initialPlayers.map((name, index): Player => {
-      return {
-        id: (index + 1).toString(),
-        name: name,
-        gameCount: 0,
-      };
-    });
-  };
+export default function Generator() {
+  // const setupInitialPlayers = (): Player[] => {
+  //   return initialPlayers.map((name, index): Player => {
+  //     return {
+  //       id: (index + 1).toString(),
+  //       name: name,
+  //       gameCount: 0,
+  //     };
+  //   });
+  // };
 
   const [totalSessionMinutes, setTotalSessionMinutes] = useState<string>('');
   const [gameMinutes, setGameMinutes] = useState<string>('');
   const [games, setGames] = useState<Game[]>([]);
-  const [players, setPlayers] = useState<Player[]>(setupInitialPlayers());
+  const [players, setPlayers] = useState<Player[]>([]);
 
   function shuffleCopy<T>(a: T[]): T[] {
     const copy = a.slice();
@@ -82,7 +85,9 @@ export function Generator() {
 
   function divideTeams(players: Player[]): Team[] {
     return Array.from({ length: TEAMS }, (_, i) => ({
-      [`Team ${i + 1}`]: players.slice(i * PLAYERS_PER_TEAM, (i + 1) * PLAYERS_PER_TEAM),
+      id: (i + 1).toString(),
+      name: `Team ${i + 1}`,
+      players: players.slice(i * PLAYERS_PER_TEAM, (i + 1) * PLAYERS_PER_TEAM),
     }));
   }
 
@@ -110,8 +115,18 @@ export function Generator() {
 
   const onGenerateGames = () => {
     const sessions = calculateNumberOfSessions();
-    const start = setupInitialPlayers(); // or memoise (see below)
-    const { games: built, players: finalQueue } = generateAllGames(start, sessions);
+
+    if (sessions < 1) {
+      alert('Please enter valid session minutes and total scrimmage minutes.');
+      return;
+    }
+
+    if (players.length < 1) {
+      alert('Please add players before generating games.');
+      return;
+    }
+
+    const { games: built, players: finalQueue } = generateAllGames(players, sessions);
     setGames(built);
     setPlayers(finalQueue);
   };
@@ -130,67 +145,54 @@ export function Generator() {
   return (
     <>
       <Section>
-        <div className="flex flex-col gap-6">
-          <div className="flex gap-8 max-w-2/3 mx-auto">
-            <div className="grid gap-3">
-              <Label>Number of minutes per session</Label>
-              <Input
-                type="number"
-                value={gameMinutes ?? undefined}
-                onChange={e => setGameMinutes(e.target.value)}
-                placeholder="How many minutes per session?"
-              />
-            </div>
-            <div className="grid gap-3">
-              <Label>Total scrimmage minutes</Label>
-              <Input
-                type="number"
-                value={totalSessionMinutes ?? undefined}
-                onChange={e => setTotalSessionMinutes(e.target.value)}
-                placeholder="Total session minutes"
-              />
-            </div>
-          </div>
-          <div className="flex mx-auto">
-            <Button onClick={onGenerateGames}>Generate session</Button>
-          </div>
-        </div>
-      </Section>
-      <Section>
-        <p className="text-xl">{players.length} players</p>
-        <ol className="list-decimal">
-          {players.map((player, index) => (
-            <li key={index}>
-              {player.name} | Number of Sessions: {player.gameCount} {}
-            </li>
-          ))}
-        </ol>
-      </Section>
-      <Section>
-        <div className="grid gap-6 px-5 md:grid-cols-3">
-          {games.map(game => (
-            <Card key={game.id}>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold">{game.name}</h2>
-                  <span className="text-sm text-muted-foreground">ID: {game.id}</span>
+        <div className="flex px-5">
+          <Card>
+            <CardHeader>
+              <CardTitle>Game Settings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-8 mx-auto">
+                <div className="grid gap-3">
+                  <Label>Minutes per game</Label>
+                  <Input
+                    type="number"
+                    value={gameMinutes ?? undefined}
+                    onChange={e => setGameMinutes(e.target.value)}
+                    placeholder=""
+                    className="text-xs"
+                  />
                 </div>
-              </CardHeader>
-              <CardContent>
-                {game.teams.map(team => {
-                  const teamName = Object.keys(team)[0];
-                  return (
-                    <div key={teamName} className="mb-4">
-                      <h3 className="text-md font-semibold">{teamName}</h3>
-                      {team[teamName].map(p => p.name).join(', ')}
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          ))}
+                <div className="grid gap-3">
+                  <Label>Total minutes</Label>
+                  <Input
+                    type="number"
+                    value={totalSessionMinutes ?? undefined}
+                    onChange={e => setTotalSessionMinutes(e.target.value)}
+                    placeholder="Total session minutes"
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+              {/*<div className="flex py-5">*/}
+              {/*  <Button className="mx-auto" onClick={onGenerateGames}>*/}
+              {/*    Generate session*/}
+              {/*  </Button>*/}
+              {/*</div>*/}
+            </CardContent>
+          </Card>
         </div>
       </Section>
+      {/*<Section>*/}
+      {/*  <p className="text-xl">{players.length} players</p>*/}
+      {/*  <ol className="list-decimal">*/}
+      {/*    {players.map((player, index) => (*/}
+      {/*      <li key={index}>*/}
+      {/*        {player.name} | Number of Sessions: {player.gameCount} {}*/}
+      {/*      </li>*/}
+      {/*    ))}*/}
+      {/*  </ol>*/}
+      {/*</Section>*/}
+      <GameCards games={games} />
     </>
   );
 }
