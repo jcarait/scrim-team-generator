@@ -7,18 +7,18 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import Section from '@/components/layout/section';
 
-type Session = {
-  sessionId: string;
-  sessionName: string;
+type Game = {
+  id: string;
+  name: string;
   players: Player[];
   teamA: Player[];
   teamB: Player[];
 };
 
 type Player = {
-  playerId: string;
-  playerName: string;
-  sessionCount: number;
+  id: string;
+  name: string;
+  gameCount: number;
 };
 
 export function Generator() {
@@ -42,75 +42,72 @@ export function Generator() {
     'Paul',
   ];
 
-  const setupInitialPlayers = () => {
-    return initialPlayers.map((name, index) => {
+  const setupInitialPlayers = (): Player[] => {
+    return initialPlayers.map((name, index): Player => {
       return {
-        playerId: (index + 1).toString(),
-        playerName: name,
-        sessionCount: 0,
+        id: (index + 1).toString(),
+        name: name,
+        gameCount: 0,
       };
     });
   };
 
   const [totalSessionMinutes, setTotalSessionMinutes] = useState<string>('');
-  const [segmentSessionMinutes, setSegmentSessionMinutes] = useState<string>('');
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [gameMinutes, setGameMinutes] = useState<string>('');
+  const [game, setGame] = useState<Game[]>([]);
   const [players, setPlayers] = useState<Player[]>(setupInitialPlayers());
 
-  const generateSessions = () => {
-    setSessions([]);
+  const generateGames = () => {
+    setGame([]);
     setPlayers([...setupInitialPlayers()]);
     const sessions = calculateNumberOfSessions();
 
-    let resultSessions: { session: Session; players: Player[] }[] = [];
+    let result: { session: Game; players: Player[] }[] = [];
 
     for (let i = 0; i < sessions; i++) {
-      resultSessions = [
-        ...resultSessions,
-        generateSession((i + 1).toString(), `Game ${i + 1}`, resultSessions[resultSessions.length - 1]?.players ?? setupInitialPlayers()),
-      ];
+      result = [...result, generateGame((i + 1).toString(), `Game ${i + 1}`, result[result.length - 1]?.players ?? setupInitialPlayers())];
     }
 
-    setPlayers(resultSessions[resultSessions.length - 1].players);
-    setSessions(resultSessions.map(rs => rs.session));
+    setPlayers(result[result.length - 1].players);
+    setGame(result.map(rs => rs.session));
   };
 
-  const generateSession = (id: string, sessionName: string, players: Player[]): { session: Session; players: Player[] } => {
-    const sessionPlayers: Player[] = [];
+  const generateGame = (id: string, sessionName: string, players: Player[]): { session: Game; players: Player[] } => {
+    const gamePlayers: Player[] = [];
     let updatedPlayers: Player[] = [...players];
-    let lowestSessionPlayers: Player[];
-    let lowestSessionCount = 0;
+    let playersLowestGameCount: Player[];
+    let lowestGameCount = 0;
 
     // Find lowest session count
-    lowestSessionCount = Math.min(...updatedPlayers.map(p => p.sessionCount));
+    lowestGameCount = Math.min(...updatedPlayers.map(p => p.gameCount));
 
     // Find players with the lowest session count
-    lowestSessionPlayers = updatedPlayers.filter(p => p.sessionCount === lowestSessionCount);
+    playersLowestGameCount = updatedPlayers.filter(p => p.gameCount === lowestGameCount);
 
-    if (lowestSessionPlayers.length < MAX_PLAYERS_PER_SESSION) {
+    if (playersLowestGameCount.length < MAX_PLAYERS_PER_SESSION) {
       // If there are not enough players with the lowest session count, include players with the next lowest count
-      lowestSessionCount = lowestSessionCount + 1;
+      lowestGameCount = lowestGameCount + 1;
       // Filter players with the next lowest session count
-      const nextLowestSessionPlayers = updatedPlayers.filter(p => p.sessionCount === lowestSessionCount);
-      shuffle(nextLowestSessionPlayers);
+      const nextPlayersLowestGameCount = updatedPlayers.filter(p => p.gameCount === lowestGameCount);
+      shuffle(nextPlayersLowestGameCount);
 
       // If filtered players and lowest session players are more than MAX_PLAYERS_PER SESSION, we need to cut down the filtered players
-      if (lowestSessionPlayers.length + nextLowestSessionPlayers.length > MAX_PLAYERS_PER_SESSION) {
-        const playersNeeded = MAX_PLAYERS_PER_SESSION - lowestSessionPlayers.length;
-        lowestSessionPlayers = [...lowestSessionPlayers, ...nextLowestSessionPlayers.slice(0, playersNeeded)];
+      if (playersLowestGameCount.length + nextPlayersLowestGameCount.length > MAX_PLAYERS_PER_SESSION) {
+        const playersNeeded = MAX_PLAYERS_PER_SESSION - playersLowestGameCount.length;
+        playersLowestGameCount = [...playersLowestGameCount, ...nextPlayersLowestGameCount.slice(0, playersNeeded)];
       }
     }
 
     for (let i = 0; i < MAX_PLAYERS_PER_SESSION; i++) {
       // Filter out players that are already in the session set
-      const filtered = lowestSessionPlayers.filter(p => !sessionPlayers.some(sp => sp.playerId === p.playerId));
+      const filtered = playersLowestGameCount.filter(p => !gamePlayers.some(sp => sp.id === p.id));
 
       // Choose a random player that is not already in the session
       const selectedPlayer = filtered[Math.floor(Math.random() * filtered.length)];
-      const updatedPlayer = { ...selectedPlayer, sessionCount: selectedPlayer.sessionCount + 1 };
+      const updatedPlayer = { ...selectedPlayer, sessionCount: selectedPlayer.gameCount + 1 };
 
       updatedPlayers = updatedPlayers.map(p => {
-        if (p.playerId === updatedPlayer.playerId) {
+        if (p.id === updatedPlayer.id) {
           return {
             ...p,
             ...updatedPlayer,
@@ -120,16 +117,16 @@ export function Generator() {
         return p;
       });
 
-      sessionPlayers.push(updatedPlayer);
+      gamePlayers.push(updatedPlayer);
     }
 
-    const shuffledSessionPlayers = [...sessionPlayers];
+    const shuffledSessionPlayers = [...gamePlayers];
     shuffle(shuffledSessionPlayers);
 
-    const session: Session = {
-      sessionId: id,
-      sessionName: sessionName,
-      players: sessionPlayers,
+    const session: Game = {
+      id: id,
+      name: sessionName,
+      players: gamePlayers,
       teamA: shuffledSessionPlayers.slice(0, MAX_PLAYERS_PER_SESSION / 2),
       teamB: shuffledSessionPlayers.slice(MAX_PLAYERS_PER_SESSION / 2, MAX_PLAYERS_PER_SESSION),
     };
@@ -138,8 +135,8 @@ export function Generator() {
   };
 
   const calculateNumberOfSessions = (): number => {
-    if (!totalSessionMinutes || !segmentSessionMinutes) return 0;
-    return Math.floor(Number(totalSessionMinutes) / Number(segmentSessionMinutes));
+    if (!totalSessionMinutes || !gameMinutes) return 0;
+    return Math.floor(Number(totalSessionMinutes) / Number(gameMinutes));
   };
 
   function shuffle<T>(arr: T[]) {
@@ -157,7 +154,7 @@ export function Generator() {
   }
 
   console.log(players);
-  console.log(sessions);
+  console.log(game);
 
   return (
     <>
@@ -169,8 +166,8 @@ export function Generator() {
               <Label>Number of minutes per session</Label>
               <Input
                 type="number"
-                value={segmentSessionMinutes ?? undefined}
-                onChange={e => setSegmentSessionMinutes(e.target.value)}
+                value={gameMinutes ?? undefined}
+                onChange={e => setGameMinutes(e.target.value)}
                 placeholder="How many minutes per session?"
               />
             </div>
@@ -185,7 +182,7 @@ export function Generator() {
             </div>
           </div>
           <div className="flex mx-auto">
-            <Button onClick={generateSessions}>Generate session</Button>
+            <Button onClick={generateGames}>Generate session</Button>
           </div>
         </div>
       </Section>
@@ -194,24 +191,24 @@ export function Generator() {
         <ol className="list-decimal">
           {players.map((player, index) => (
             <li key={index}>
-              {player.playerName} | Number of Sessions: {player.sessionCount} {}
+              {player.name} | Number of Sessions: {player.gameCount} {}
             </li>
           ))}
         </ol>
       </Section>
       <Section>
         <div className="grid gap-6 px-5 md:grid-cols-3">
-          {sessions.map(session => (
-            <Card key={session.sessionId}>
+          {game.map(session => (
+            <Card key={session.id}>
               <CardHeader>
                 <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold">{session.sessionName}</h2>
-                  <span className="text-sm text-muted-foreground">ID: {session.sessionId}</span>
+                  <h2 className="text-lg font-semibold">{session.name}</h2>
+                  <span className="text-sm text-muted-foreground">ID: {session.id}</span>
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mt-1">Team A: {Array.from(session.teamA.map(p => p.playerName)).join(', ')}</p>
-                <p className="text-sm text-muted-foreground mt-1">Team B: {Array.from(session.teamB.map(p => p.playerName)).join(', ')}</p>
+                <p className="text-sm text-muted-foreground mt-1">Team A: {Array.from(session.teamA.map(p => p.name)).join(', ')}</p>
+                <p className="text-sm text-muted-foreground mt-1">Team B: {Array.from(session.teamB.map(p => p.name)).join(', ')}</p>
               </CardContent>
             </Card>
           ))}
