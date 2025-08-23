@@ -6,13 +6,12 @@ import { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import Section from '@/components/layout/section';
+import { shuffle } from '@vitest/utils';
 
 type Game = {
   id: string;
   name: string;
-  players: Player[];
-  teamA: Player[];
-  teamB: Player[];
+  teams: Team[];
 };
 
 type Player = {
@@ -21,27 +20,42 @@ type Player = {
   gameCount: number;
 };
 
+type Team = {
+  [key: string]: Player[];
+};
+
+const PLAYERS_PER_GAME = 10;
+const TEAMS = 2;
+const PLAYERS_PER_TEAM = PLAYERS_PER_GAME / TEAMS;
+
+const initialPlayers = ['Jono', 'Gel', 'Matt', 'Raimie', 'Qwayne', 'El', 'John', 'Mark', 'Matthew', 'Luke', 'Thad', 'Chad', 'Esther', 'Jude', 'Paul'];
+
+// Make a list of 50 initial players with unique names of people
+const initialPlayers35 = [
+  ...initialPlayers,
+  'Alice',
+  'Bob',
+  'Charlie',
+  'David',
+  'Eve',
+  'Frank',
+  'Grace',
+  'Heidi',
+  'Ivan',
+  'Judy',
+  'Karl',
+  'Leo',
+  'Mallory',
+  'Nina',
+  'Oscar',
+  'Peggy',
+  'Quentin',
+  'Rupert',
+  'Sybil',
+  'Trent',
+];
+
 export function Generator() {
-  const MAX_PLAYERS_PER_SESSION = 10;
-
-  const initialPlayers = [
-    'Jono',
-    'Gel',
-    'Matt',
-    'Raimie',
-    'Qwayne',
-    'El',
-    'John',
-    'Mark',
-    'Matthew',
-    'Luke',
-    'Thad',
-    'Chad',
-    'Esther',
-    'Jude',
-    'Paul',
-  ];
-
   const setupInitialPlayers = (): Player[] => {
     return initialPlayers.map((name, index): Player => {
       return {
@@ -54,113 +68,69 @@ export function Generator() {
 
   const [totalSessionMinutes, setTotalSessionMinutes] = useState<string>('');
   const [gameMinutes, setGameMinutes] = useState<string>('');
-  const [game, setGame] = useState<Game[]>([]);
+  const [games, setGames] = useState<Game[]>([]);
   const [players, setPlayers] = useState<Player[]>(setupInitialPlayers());
 
-  const generateGames = () => {
-    setGame([]);
-    setPlayers([...setupInitialPlayers()]);
+  function shuffleCopy<T>(a: T[]): T[] {
+    const copy = a.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }
+
+  function divideTeams(players: Player[]): Team[] {
+    return Array.from({ length: TEAMS }, (_, i) => ({
+      [`Team ${i + 1}`]: players.slice(i * PLAYERS_PER_TEAM, (i + 1) * PLAYERS_PER_TEAM),
+    }));
+  }
+
+  function generateAllGames(roster: Player[], gamesCount: number): { games: Game[]; players: Player[] } {
+    let queue = shuffleCopy(roster);
+    const outGames: Game[] = [];
+
+    for (let g = 0; g < gamesCount; g++) {
+      if (queue.length < PLAYERS_PER_GAME) break;
+      const sorted = queue.sort((a, b) => a.gameCount - b.gameCount); // sort by game count
+      const onCourt = sorted.slice(0, PLAYERS_PER_GAME);
+      shuffle(onCourt);
+      const bench = sorted.slice(PLAYERS_PER_GAME);
+
+      const updatedOnCourt = onCourt.map(p => ({ ...p, gameCount: p.gameCount + 1 }));
+      const teams = divideTeams(updatedOnCourt);
+      outGames.push({ id: `${g + 1}`, name: `Game ${g + 1}`, teams });
+
+      // rotate: those who played go to the back
+      queue = bench.concat(updatedOnCourt);
+    }
+
+    return { games: outGames, players: queue }; // queue order = who’s up next / final state
+  }
+
+  const onGenerateGames = () => {
     const sessions = calculateNumberOfSessions();
-
-    let result: { session: Game; players: Player[] }[] = [];
-
-    for (let i = 0; i < sessions; i++) {
-      result = [...result, generateGame((i + 1).toString(), `Game ${i + 1}`, result[result.length - 1]?.players ?? setupInitialPlayers())];
-    }
-
-    setPlayers(result[result.length - 1].players);
-    setGame(result.map(rs => rs.session));
-  };
-
-  const generateGame = (id: string, sessionName: string, players: Player[]): { session: Game; players: Player[] } => {
-    const gamePlayers: Player[] = [];
-    let updatedPlayers: Player[] = [...players];
-    let playersLowestGameCount: Player[];
-    let lowestGameCount = 0;
-
-    // Find lowest session count
-    lowestGameCount = Math.min(...updatedPlayers.map(p => p.gameCount));
-
-    // Find players with the lowest session count
-    playersLowestGameCount = updatedPlayers.filter(p => p.gameCount === lowestGameCount);
-
-    if (playersLowestGameCount.length < MAX_PLAYERS_PER_SESSION) {
-      // If there are not enough players with the lowest session count, include players with the next lowest count
-      lowestGameCount = lowestGameCount + 1;
-      // Filter players with the next lowest session count
-      const nextPlayersLowestGameCount = updatedPlayers.filter(p => p.gameCount === lowestGameCount);
-      shuffle(nextPlayersLowestGameCount);
-
-      // If filtered players and lowest session players are more than MAX_PLAYERS_PER SESSION, we need to cut down the filtered players
-      if (playersLowestGameCount.length + nextPlayersLowestGameCount.length > MAX_PLAYERS_PER_SESSION) {
-        const playersNeeded = MAX_PLAYERS_PER_SESSION - playersLowestGameCount.length;
-        playersLowestGameCount = [...playersLowestGameCount, ...nextPlayersLowestGameCount.slice(0, playersNeeded)];
-      }
-    }
-
-    for (let i = 0; i < MAX_PLAYERS_PER_SESSION; i++) {
-      // Filter out players that are already in the session set
-      const filtered = playersLowestGameCount.filter(p => !gamePlayers.some(sp => sp.id === p.id));
-
-      // Choose a random player that is not already in the session
-      const selectedPlayer = filtered[Math.floor(Math.random() * filtered.length)];
-      const updatedPlayer = { ...selectedPlayer, sessionCount: selectedPlayer.gameCount + 1 };
-
-      updatedPlayers = updatedPlayers.map(p => {
-        if (p.id === updatedPlayer.id) {
-          return {
-            ...p,
-            ...updatedPlayer,
-          };
-        }
-
-        return p;
-      });
-
-      gamePlayers.push(updatedPlayer);
-    }
-
-    const shuffledSessionPlayers = [...gamePlayers];
-    shuffle(shuffledSessionPlayers);
-
-    const session: Game = {
-      id: id,
-      name: sessionName,
-      players: gamePlayers,
-      teamA: shuffledSessionPlayers.slice(0, MAX_PLAYERS_PER_SESSION / 2),
-      teamB: shuffledSessionPlayers.slice(MAX_PLAYERS_PER_SESSION / 2, MAX_PLAYERS_PER_SESSION),
-    };
-
-    return { session, players: updatedPlayers };
+    const start = setupInitialPlayers(); // or memoise (see below)
+    const { games: built, players: finalQueue } = generateAllGames(start, sessions);
+    setGames(built);
+    setPlayers(finalQueue);
   };
 
   const calculateNumberOfSessions = (): number => {
-    if (!totalSessionMinutes || !gameMinutes) return 0;
-    return Math.floor(Number(totalSessionMinutes) / Number(gameMinutes));
-  };
+    const minutesPerSession = parseInt(gameMinutes, 10) || 0;
+    const totalMinutes = parseInt(totalSessionMinutes, 10) || 0;
 
-  function shuffle<T>(arr: T[]) {
-    let currentIndex = arr.length;
-
-    // While there remain elements to shuffle...
-    while (currentIndex != 0) {
-      // Pick a remaining element...
-      const randomIndex = Math.floor(Math.random() * currentIndex);
-      currentIndex--;
-
-      // And swap it with the current element.
-      [arr[currentIndex], arr[randomIndex]] = [arr[randomIndex], arr[currentIndex]];
+    if (minutesPerSession <= 0 || totalMinutes <= 0) {
+      return 0; // Invalid input
     }
-  }
 
-  console.log(players);
-  console.log(game);
+    return Math.floor(totalMinutes / minutesPerSession);
+  };
 
   return (
     <>
       <Section>
         <div className="flex flex-col gap-6">
-          <h1 className="text-2xl text-center">Scrim Team Generator</h1>
           <div className="flex gap-8 max-w-2/3 mx-auto">
             <div className="grid gap-3">
               <Label>Number of minutes per session</Label>
@@ -182,7 +152,7 @@ export function Generator() {
             </div>
           </div>
           <div className="flex mx-auto">
-            <Button onClick={generateGames}>Generate session</Button>
+            <Button onClick={onGenerateGames}>Generate session</Button>
           </div>
         </div>
       </Section>
@@ -198,17 +168,24 @@ export function Generator() {
       </Section>
       <Section>
         <div className="grid gap-6 px-5 md:grid-cols-3">
-          {game.map(session => (
-            <Card key={session.id}>
+          {games.map(game => (
+            <Card key={game.id}>
               <CardHeader>
                 <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold">{session.name}</h2>
-                  <span className="text-sm text-muted-foreground">ID: {session.id}</span>
+                  <h2 className="text-lg font-semibold">{game.name}</h2>
+                  <span className="text-sm text-muted-foreground">ID: {game.id}</span>
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mt-1">Team A: {Array.from(session.teamA.map(p => p.name)).join(', ')}</p>
-                <p className="text-sm text-muted-foreground mt-1">Team B: {Array.from(session.teamB.map(p => p.name)).join(', ')}</p>
+                {game.teams.map(team => {
+                  const teamName = Object.keys(team)[0];
+                  return (
+                    <div key={teamName} className="mb-4">
+                      <h3 className="text-md font-semibold">{teamName}</h3>
+                      {team[teamName].map(p => p.name).join(', ')}
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
           ))}
