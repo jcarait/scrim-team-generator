@@ -163,8 +163,8 @@ export function Generator() {
     <>
       <Section>
         <div className="flex flex-col gap-6">
-          <h1 className="text-2xl">Scrim Team Generator</h1>
-          <div className="flex gap-8 max-w-2/3">
+          <h1 className="text-2xl text-center">Scrim Team Generator</h1>
+          <div className="flex gap-8 max-w-2/3 mx-auto">
             <div className="grid gap-3">
               <Label>Number of minutes per session</Label>
               <Input
@@ -184,7 +184,7 @@ export function Generator() {
               />
             </div>
           </div>
-          <div className="flex">
+          <div className="flex mx-auto">
             <Button onClick={generateSessions}>Generate session</Button>
           </div>
         </div>
@@ -200,7 +200,7 @@ export function Generator() {
         </ol>
       </Section>
       <Section>
-        <div className="grid gap-6 grid-cols-3">
+        <div className="grid gap-6 px-5 md:grid-cols-3">
           {sessions.map(session => (
             <Card key={session.sessionId}>
               <CardHeader>
