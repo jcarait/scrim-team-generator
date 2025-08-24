@@ -1,13 +1,15 @@
 'use client';
 
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import Section from '@/components/layout/section';
 import { shuffle } from '@vitest/utils';
 import GameCards from '@/components/core/game-cards';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { CirclePlus, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export type Game = {
   id: string;
@@ -16,9 +18,9 @@ export type Game = {
 };
 
 type Player = {
-  id: string;
   name: string;
   gameCount: number;
+  gamesPlayed: number;
 };
 
 type Team = {
@@ -73,6 +75,7 @@ export default function Generator() {
   const [gameMinutes, setGameMinutes] = useState<string>('');
   const [games, setGames] = useState<Game[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [rawPlayerInput, setRawPlayerInput] = useState<string>('');
 
   function shuffleCopy<T>(a: T[]): T[] {
     const copy = a.slice();
@@ -97,7 +100,7 @@ export default function Generator() {
 
     for (let g = 0; g < gamesCount; g++) {
       if (queue.length < PLAYERS_PER_GAME) break;
-      const sorted = queue.sort((a, b) => a.gameCount - b.gameCount); // sort by game count
+      const sorted = queue.sort((a, b) => a.gameCount - b.gameCount);
       const onCourt = sorted.slice(0, PLAYERS_PER_GAME);
       shuffle(onCourt);
       const bench = sorted.slice(PLAYERS_PER_GAME);
@@ -116,6 +119,8 @@ export default function Generator() {
   const onGenerateGames = () => {
     const sessions = calculateNumberOfSessions();
 
+    const playerReset = players.map(p => ({ ...p, gameCount: 0 }));
+
     if (sessions < 1) {
       alert('Please enter valid session minutes and total scrimmage minutes.');
       return;
@@ -126,9 +131,11 @@ export default function Generator() {
       return;
     }
 
-    const { games: built, players: finalQueue } = generateAllGames(players, sessions);
+    const { games: built, players: finalQueue } = generateAllGames(playerReset, sessions);
     setGames(built);
-    setPlayers(finalQueue);
+    setPlayers(finalQueue.sort((a, b) => a.name.localeCompare(b.name)));
+
+    window.scrollTo({ top: 5, behavior: 'smooth' });
   };
 
   const calculateNumberOfSessions = (): number => {
@@ -142,57 +149,138 @@ export default function Generator() {
     return Math.floor(totalMinutes / minutesPerSession);
   };
 
+  const handleAddPlayers = (): void => {
+    const tokens = rawPlayerInput
+      .split(/\r?\n|,/)
+      .map(s => s.replace(/^[^A-Za-z]+/, '').trim())
+      .filter(Boolean);
+
+    // Case-insensitive dedupe while preserving first-seen casing
+    const seen = new Set<string>();
+    const uniqueTokens: string[] = [];
+    for (const name of tokens) {
+      const key = name.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueTokens.push(name);
+      }
+    }
+
+    const cleaned = uniqueTokens.join(', ');
+    setRawPlayerInput(cleaned);
+
+    const newPlayers: Player[] = uniqueTokens
+      .filter(name => !players.find(p => p.name.toLowerCase() === name.toLowerCase()))
+      .map((name, index) => ({
+        id: (players.length + index + 1).toString(),
+        name,
+        gameCount: 0,
+        gamesPlayed: 0,
+      }));
+
+    setPlayers(prev => [...prev, ...newPlayers]);
+  };
+
+  const removePlayer = (name: string): void => {
+    setPlayers(prev => prev.filter(p => p.name !== name));
+  };
+
   return (
     <>
-      <Section>
-        <div className="flex px-5">
-          <Card>
-            <CardHeader>
-              <CardTitle>Game Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-8 mx-auto">
-                <div className="grid gap-3">
-                  <Label>Minutes per game</Label>
-                  <Input
-                    type="number"
-                    value={gameMinutes ?? undefined}
-                    onChange={e => setGameMinutes(e.target.value)}
-                    placeholder=""
-                    className="text-xs"
-                  />
-                </div>
-                <div className="grid gap-3">
-                  <Label>Total minutes</Label>
-                  <Input
-                    type="number"
-                    value={totalSessionMinutes ?? undefined}
-                    onChange={e => setTotalSessionMinutes(e.target.value)}
-                    placeholder="Total session minutes"
-                    className="text-xs"
-                  />
-                </div>
-              </div>
-              {/*<div className="flex py-5">*/}
-              {/*  <Button className="mx-auto" onClick={onGenerateGames}>*/}
-              {/*    Generate session*/}
-              {/*  </Button>*/}
-              {/*</div>*/}
-            </CardContent>
-          </Card>
-        </div>
-      </Section>
-      {/*<Section>*/}
-      {/*  <p className="text-xl">{players.length} players</p>*/}
-      {/*  <ol className="list-decimal">*/}
-      {/*    {players.map((player, index) => (*/}
-      {/*      <li key={index}>*/}
-      {/*        {player.name} | Number of Sessions: {player.gameCount} {}*/}
-      {/*      </li>*/}
-      {/*    ))}*/}
-      {/*  </ol>*/}
-      {/*</Section>*/}
-      <GameCards games={games} />
+      {/* ========= GAME SETTINGS =========*/}
+      {!games ||
+        (games.length < 1 && (
+          <>
+            <Section>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="row-start-1 row-span-2">Players</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-8 mx-auto">
+                    <div className="grid gap-3">
+                      <Label htmlFor="player-input">Add Players</Label>
+                      <Textarea
+                        id="player-input"
+                        value={rawPlayerInput}
+                        onChange={e => {
+                          setRawPlayerInput(e.target.value);
+                        }}
+                        placeholder={`Type names separated by comma (e.g. John, Bob, Jane, Doe) or line breaks: \n John \n Bob \n Jane \n Doe`}
+                      />
+                    </div>
+                    <Button onClick={handleAddPlayers}>
+                      <CirclePlus />
+                      Add Players
+                    </Button>
+                    {players.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Players ({players.length})</Label>
+                        {/*<div className="space-y-1 max-h-48 overflow-y-auto">*/}
+                        <div className="space-y-1">
+                          {players.map((player, index) => (
+                            <div key={index} className="flex items-center justify-between bg-white p-2 rounded border">
+                              <div className="flex items-center gap-3">
+                                <span className="font-medium text-sm">{player.name}</span>
+                                <span className="text-xs text-gray-500">
+                                  {player.gameCount} {player.gameCount === 1 ? 'game' : 'games'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removePlayer(player.name)}
+                                  className="h-6 w-6 p-0 text-red-400 hover:text-red-600 ml-1">
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </Section>
+            <Section>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Game Settings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-8 mx-auto">
+                    <div className="grid gap-3">
+                      <Label>Minutes per game</Label>
+                      <Input
+                        type="number"
+                        value={gameMinutes ?? undefined}
+                        onChange={e => setGameMinutes(e.target.value)}
+                        placeholder="e.g. 10 for 10 minutes"
+                      />
+                    </div>
+                    <div className="grid gap-3">
+                      <Label>Total scrimmage duration (minutes)</Label>
+                      <Input
+                        type="number"
+                        value={totalSessionMinutes ?? undefined}
+                        onChange={e => setTotalSessionMinutes(e.target.value)}
+                        placeholder="e.g. 120 for 120 minutes"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Section>
+            <div className="flex py-5">
+              <Button className="mx-auto" onClick={onGenerateGames}>
+                Create Games
+              </Button>
+            </div>
+          </>
+        ))}
+      {games.length > 0 && <GameCards games={games} />}
     </>
   );
 }

@@ -9,7 +9,7 @@ type GameCardsProps = {
 export default function GameCards({ games }: GameCardsProps) {
   return (
     <Section>
-      <div className="grid gap-6 px-5 md:grid-cols-3">
+      <div className="grid gap-6 px-5 md:grid-cols-3" id="game-cards-section">
         {games.map(game => (
           <Card key={game.id}>
             <CardHeader>
