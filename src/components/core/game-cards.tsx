@@ -23,7 +23,13 @@ export default function GameCards({ games }: GameCardsProps) {
                 return (
                   <div key={team.id} className="mb-4">
                     <h3 className="text-md font-semibold">{team.name}</h3>
-                    {team.players.map(p => p.name).join(', ')}
+                    {team.players
+                      .map(player => {
+                        if (player.gender === 'male') return `${player.name} (M)`;
+                        if (player.gender === 'female') return `${player.name} (F)`;
+                        return player.name;
+                      })
+                      .join(', ')}
                   </div>
                 );
               })}

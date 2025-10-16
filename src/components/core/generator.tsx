@@ -1,10 +1,9 @@
 'use client';
 
 import { Input } from '@/components/ui/input';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import Section from '@/components/layout/section';
-import { shuffle } from '@vitest/utils';
 import GameCards from '@/components/core/game-cards';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,10 +16,15 @@ export type Game = {
   teams: Team[];
 };
 
+type Gender = 'male' | 'female' | 'unspecified';
+
 type Player = {
+  id: string;
   name: string;
+  gender: Gender;
   gameCount: number;
   gamesPlayed: number;
+  consecutiveGames: number;
 };
 
 type Team = {
@@ -31,7 +35,6 @@ type Team = {
 
 const PLAYERS_PER_GAME = 10;
 const TEAMS = 2;
-const PLAYERS_PER_TEAM = PLAYERS_PER_GAME / TEAMS;
 
 // const initialPlayers = ['Jono', 'Gel', 'Matt', 'Raimie', 'Qwayne', 'El', 'John', 'Mark', 'Matthew', 'Luke', 'Thad', 'Chad', 'Esther', 'Jude', 'Paul'];
 //
@@ -76,6 +79,7 @@ export default function Generator() {
   const [games, setGames] = useState<Game[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [rawPlayerInput, setRawPlayerInput] = useState<string>('');
+  const [maxConsecutiveGames, setMaxConsecutiveGames] = useState<string>('2');
 
   function shuffleCopy<T>(a: T[]): T[] {
     const copy = a.slice();
@@ -86,31 +90,210 @@ export default function Generator() {
     return copy;
   }
 
-  function divideTeams(players: Player[]): Team[] {
-    return Array.from({ length: TEAMS }, (_, i) => ({
-      id: (i + 1).toString(),
-      name: `Team ${i + 1}`,
-      players: players.slice(i * PLAYERS_PER_TEAM, (i + 1) * PLAYERS_PER_TEAM),
-    }));
+  function computeGenderTargets(maleAvailable: number, femaleAvailable: number, totalSpots: number): {
+    maleTarget: number;
+    femaleTarget: number;
+  } {
+    const clampedTotal = Math.max(0, totalSpots);
+    const baseTarget = Math.floor(clampedTotal / 2);
+    let maleTarget = Math.min(baseTarget, maleAvailable);
+    let femaleTarget = Math.min(baseTarget, femaleAvailable);
+    let assigned = maleTarget + femaleTarget;
+
+    const incrementGender = (gender: 'male' | 'female') => {
+      if (assigned >= clampedTotal) return;
+      if (gender === 'male' && maleTarget < maleAvailable) {
+        maleTarget += 1;
+        assigned = maleTarget + femaleTarget;
+      }
+      if (gender === 'female' && femaleTarget < femaleAvailable) {
+        femaleTarget += 1;
+        assigned = maleTarget + femaleTarget;
+      }
+    };
+
+    while (assigned < clampedTotal && (maleTarget < maleAvailable || femaleTarget < femaleAvailable)) {
+      const maleRemaining = maleAvailable - maleTarget;
+      const femaleRemaining = femaleAvailable - femaleTarget;
+
+      if (maleRemaining > femaleRemaining) {
+        incrementGender('male');
+      } else if (femaleRemaining > maleRemaining) {
+        incrementGender('female');
+      } else if (maleRemaining > 0) {
+        incrementGender('male');
+      } else if (femaleRemaining > 0) {
+        incrementGender('female');
+      } else {
+        break;
+      }
+    }
+
+    return { maleTarget, femaleTarget };
   }
 
-  function generateAllGames(roster: Player[], gamesCount: number): { games: Game[]; players: Player[] } {
+  function collectBalancedPlayers(pool: Player[], spots: number, selected: Player[], selectedIds: Set<string>) {
+    if (spots <= 0) return;
+
+    const available = pool.filter(player => !selectedIds.has(player.id));
+    if (available.length === 0) return;
+
+    const targetSpots = Math.min(spots, available.length);
+
+    const maleCandidates = available.filter(p => p.gender === 'male');
+    const femaleCandidates = available.filter(p => p.gender === 'female');
+    const unspecifiedCandidates = available.filter(p => p.gender === 'unspecified');
+
+    const { maleTarget, femaleTarget } = computeGenderTargets(maleCandidates.length, femaleCandidates.length, targetSpots);
+
+    let taken = 0;
+
+    const takeFromList = (list: Player[], limit?: number) => {
+      if (taken >= targetSpots) return;
+      let consumed = 0;
+      for (const candidate of list) {
+        if (taken >= targetSpots) break;
+        if (selectedIds.has(candidate.id)) continue;
+        if (limit !== undefined && consumed >= limit) break;
+        selected.push(candidate);
+        selectedIds.add(candidate.id);
+        taken += 1;
+        consumed += 1;
+      }
+    };
+
+    takeFromList(maleCandidates, maleTarget);
+    takeFromList(femaleCandidates, femaleTarget);
+
+    if (taken < targetSpots) {
+      takeFromList(unspecifiedCandidates);
+    }
+
+    if (taken < targetSpots) {
+      takeFromList(maleCandidates.slice(maleTarget));
+    }
+
+    if (taken < targetSpots) {
+      takeFromList(femaleCandidates.slice(femaleTarget));
+    }
+
+    if (taken < targetSpots) {
+      takeFromList(available);
+    }
+  }
+
+  function selectPlayersForGame(queue: Player[], consecutiveLimit: number): Player[] {
+    const fairnessSorted = queue
+      .slice()
+      .sort((a, b) => {
+        if (a.gameCount !== b.gameCount) return a.gameCount - b.gameCount;
+        if (a.consecutiveGames !== b.consecutiveGames) return a.consecutiveGames - b.consecutiveGames;
+        return a.name.localeCompare(b.name);
+      });
+
+    const isEligible = (player: Player) => consecutiveLimit <= 0 || player.consecutiveGames < consecutiveLimit;
+    const eligible = fairnessSorted.filter(isEligible);
+    const needsRest = fairnessSorted.filter(player => !isEligible(player));
+
+    const selected: Player[] = [];
+    const selectedIds = new Set<string>();
+
+    collectBalancedPlayers(eligible, PLAYERS_PER_GAME, selected, selectedIds);
+
+    if (selected.length < PLAYERS_PER_GAME) {
+      collectBalancedPlayers(needsRest, PLAYERS_PER_GAME - selected.length, selected, selectedIds);
+    }
+
+    return selected.slice(0, PLAYERS_PER_GAME);
+  }
+
+  function chooseTeamIndex(teams: Team[], gender: Gender): number {
+    const stats = teams.map((team, idx) => {
+      const genderCount = team.players.filter(p => p.gender === gender).length;
+      return {
+        idx,
+        genderCount,
+        total: team.players.length,
+      };
+    });
+
+    if (gender === 'unspecified') {
+      const minTotal = Math.min(...stats.map(stat => stat.total));
+      const candidates = stats.filter(stat => stat.total === minTotal);
+      return candidates[Math.floor(Math.random() * candidates.length)].idx;
+    }
+
+    const minGender = Math.min(...stats.map(stat => stat.genderCount));
+    const genderCandidates = stats.filter(stat => stat.genderCount === minGender);
+    const minTotal = Math.min(...genderCandidates.map(stat => stat.total));
+    const candidates = genderCandidates.filter(stat => stat.total === minTotal);
+    return candidates[Math.floor(Math.random() * candidates.length)].idx;
+  }
+
+  function buildTeams(players: Player[]): Team[] {
+    const teams = Array.from({ length: TEAMS }, (_, i) => ({
+      id: (i + 1).toString(),
+      name: `Team ${i + 1}`,
+      players: [] as Player[],
+    }));
+
+    const maleGroup = shuffleCopy(players.filter(player => player.gender === 'male'));
+    const femaleGroup = shuffleCopy(players.filter(player => player.gender === 'female'));
+    const unspecifiedGroup = shuffleCopy(players.filter(player => player.gender === 'unspecified'));
+
+    const assignGroup = (group: Player[], gender: Gender) => {
+      for (const player of group) {
+        const idx = chooseTeamIndex(teams, gender);
+        teams[idx].players.push(player);
+      }
+    };
+
+    assignGroup(maleGroup, 'male');
+    assignGroup(femaleGroup, 'female');
+
+    for (const player of unspecifiedGroup) {
+      const idx = chooseTeamIndex(teams, 'unspecified');
+      teams[idx].players.push(player);
+    }
+
+    return teams;
+  }
+
+  function generateAllGames(roster: Player[], gamesCount: number, consecutiveLimit: number): { games: Game[]; players: Player[] } {
     let queue = shuffleCopy(roster);
     const outGames: Game[] = [];
 
     for (let g = 0; g < gamesCount; g++) {
       if (queue.length < PLAYERS_PER_GAME) break;
-      const sorted = queue.sort((a, b) => a.gameCount - b.gameCount);
-      const onCourt = sorted.slice(0, PLAYERS_PER_GAME);
-      shuffle(onCourt);
-      const bench = sorted.slice(PLAYERS_PER_GAME);
 
-      const updatedOnCourt = onCourt.map(p => ({ ...p, gameCount: p.gameCount + 1 }));
-      const teams = divideTeams(updatedOnCourt);
+      const selected = selectPlayersForGame(queue, consecutiveLimit);
+      if (selected.length < PLAYERS_PER_GAME) break;
+
+      const selectedIds = new Set(selected.map(player => player.id));
+
+      const updatedQueue = queue.map(player => {
+        if (selectedIds.has(player.id)) {
+          return {
+            ...player,
+            gameCount: player.gameCount + 1,
+            gamesPlayed: player.gamesPlayed + 1,
+            consecutiveGames: player.consecutiveGames + 1,
+          };
+        }
+
+        return {
+          ...player,
+          consecutiveGames: 0,
+        };
+      });
+
+      const playing = updatedQueue.filter(player => selectedIds.has(player.id));
+      const bench = updatedQueue.filter(player => !selectedIds.has(player.id));
+
+      const teams = buildTeams(playing);
       outGames.push({ id: `${g + 1}`, name: `Game ${g + 1}`, teams });
 
-      // rotate: those who played go to the back
-      queue = bench.concat(updatedOnCourt);
+      queue = bench.concat(playing);
     }
 
     return { games: outGames, players: queue }; // queue order = who’s up next / final state
@@ -119,7 +302,12 @@ export default function Generator() {
   const onGenerateGames = () => {
     const sessions = calculateNumberOfSessions();
 
-    const playerReset = players.map(p => ({ ...p, gameCount: 0 }));
+    const playerReset = players.map(p => ({
+      ...p,
+      gameCount: 0,
+      gamesPlayed: 0,
+      consecutiveGames: 0,
+    }));
 
     if (sessions < 1) {
       alert('Please enter valid session minutes and total scrimmage minutes.');
@@ -131,7 +319,10 @@ export default function Generator() {
       return;
     }
 
-    const { games: built, players: finalQueue } = generateAllGames(playerReset, sessions);
+    const parsedLimit = parseInt(maxConsecutiveGames, 10);
+    const consecutiveLimit = Number.isNaN(parsedLimit) ? 0 : Math.max(0, parsedLimit);
+
+    const { games: built, players: finalQueue } = generateAllGames(playerReset, sessions, consecutiveLimit);
     setGames(built);
     setPlayers(finalQueue.sort((a, b) => a.name.localeCompare(b.name)));
 
@@ -174,15 +365,37 @@ export default function Generator() {
       .map((name, index) => ({
         id: (players.length + index + 1).toString(),
         name,
+        gender: 'unspecified' as const,
         gameCount: 0,
         gamesPlayed: 0,
+        consecutiveGames: 0,
       }));
 
     setPlayers(prev => [...prev, ...newPlayers]);
   };
 
-  const removePlayer = (name: string): void => {
-    setPlayers(prev => prev.filter(p => p.name !== name));
+  const updatePlayerGender = (id: string, gender: Gender): void => {
+    setPlayers(prev =>
+      prev.map(player => {
+        if (player.id !== id) return player;
+        return { ...player, gender };
+      }),
+    );
+  };
+
+  const removePlayer = (id: string): void => {
+    setPlayers(prev => prev.filter(p => p.id !== id));
+  };
+
+  const genderOptions: { label: string; value: Gender }[] = [
+    { label: 'Male', value: 'male' },
+    { label: 'Female', value: 'female' },
+  ];
+
+  const formatGender = (gender: Gender): string => {
+    if (gender === 'male') return 'Male';
+    if (gender === 'female') return 'Female';
+    return 'Not set';
   };
 
   return (
@@ -218,19 +431,48 @@ export default function Generator() {
                         <Label>Players ({players.length})</Label>
                         {/*<div className="space-y-1 max-h-48 overflow-y-auto">*/}
                         <div className="space-y-1">
-                          {players.map((player, index) => (
-                            <div key={index} className="flex items-center justify-between bg-white p-2 rounded border">
+                          {players.map(player => (
+                            <div key={player.id} className="flex items-center justify-between bg-white p-2 rounded border">
                               <div className="flex items-center gap-3">
                                 <span className="font-medium text-sm">{player.name}</span>
                                 <span className="text-xs text-gray-500">
                                   {player.gameCount} {player.gameCount === 1 ? 'game' : 'games'}
                                 </span>
+                                <span className="text-xs text-gray-500">{formatGender(player.gender)}</span>
                               </div>
                               <div className="flex items-center gap-1">
+                                <div className="flex gap-1" role="radiogroup" aria-label="Select gender">
+                                  {genderOptions.map(option => {
+                                    const isActive = player.gender === option.value;
+                                    return (
+                                      <Button
+                                        key={option.value}
+                                        type="button"
+                                        size="sm"
+                                        role="radio"
+                                        aria-checked={isActive}
+                                        variant={isActive ? 'default' : 'outline'}
+                                        className="h-6 px-2 text-xs"
+                                        onClick={() => updatePlayerGender(player.id, option.value)}>
+                                        {option.label}
+                                      </Button>
+                                    );
+                                  })}
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    role="radio"
+                                    aria-checked={player.gender === 'unspecified'}
+                                    variant={player.gender === 'unspecified' ? 'default' : 'ghost'}
+                                    className="h-6 px-2 text-xs"
+                                    onClick={() => updatePlayerGender(player.id, 'unspecified')}>
+                                    Clear
+                                  </Button>
+                                </div>
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => removePlayer(player.name)}
+                                  onClick={() => removePlayer(player.id)}
                                   className="h-6 w-6 p-0 text-red-400 hover:text-red-600 ml-1">
                                   <X className="h-3 w-3" />
                                 </Button>
@@ -267,6 +509,16 @@ export default function Generator() {
                         value={totalSessionMinutes ?? undefined}
                         onChange={e => setTotalSessionMinutes(e.target.value)}
                         placeholder="e.g. 120 for 120 minutes"
+                      />
+                    </div>
+                    <div className="grid gap-3">
+                      <Label>Max consecutive games before rest</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={maxConsecutiveGames ?? undefined}
+                        onChange={e => setMaxConsecutiveGames(e.target.value)}
+                        placeholder="e.g. 2"
                       />
                     </div>
                   </div>
