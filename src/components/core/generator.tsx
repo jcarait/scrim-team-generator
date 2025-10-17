@@ -5,10 +5,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import Section from '@/components/layout/section';
 import GameCards from '@/components/core/game-cards';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import HistoryRun from '@/components/core/history-run';
 import { Textarea } from '@/components/ui/textarea';
-import { CirclePlus, History, X } from 'lucide-react';
+import { ChevronDown, CirclePlus, History, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export type Game = {
@@ -584,16 +583,17 @@ export default function Generator() {
           </Button>
         </div>
       </div>
-      {!games ||
-        (games.length < 1 && (
-          <>
-            <Section>
-              <Card className="border border-primary/15 bg-white/95 shadow-[0_18px_46px_-18px_rgba(194,104,20,0.35)] backdrop-blur">
-                <CardHeader>
-                  <CardTitle className="row-start-1 row-span-2">Players</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-6 mx-auto w-full max-w-3xl">
+      {games.length < 1 && (
+        <>
+          <Section>
+            <div className="mx-auto w-full max-w-3xl space-y-4">
+              <details className="group rounded-2xl border border-primary/15 bg-white/95 shadow-[0_18px_46px_-18px_rgba(194,104,20,0.35)] backdrop-blur" open>
+                <summary className="flex cursor-pointer select-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold uppercase tracking-[0.25em] text-primary/80">
+                  <span>Players ({players.length})</span>
+                  <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
+                </summary>
+                <div className="px-5 pb-6">
+                  <div className="space-y-4">
                     <div className="grid gap-3">
                       <Label htmlFor="player-input">Add Players</Label>
                       <Textarea
@@ -613,75 +613,72 @@ export default function Generator() {
                       Add Players
                     </Button>
                     {players.length > 0 && (
-                      <div className="space-y-2">
-                        <Label>Players ({players.length})</Label>
-                        <div className="space-y-2">
-                          {players.map(player => (
-                            <div
-                              key={player.id}
-                              className="flex flex-col gap-3 rounded border border-primary/10 bg-orange-50/70 p-3 shadow-sm shadow-orange-200/40 transition hover:border-primary/30 sm:flex-row sm:items-center sm:justify-between">
-                              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
-                                <span className="font-medium text-sm sm:text-base">{player.name}</span>
-                                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                                  <span>
-                                    {player.gameCount} {player.gameCount === 1 ? 'game' : 'games'}
-                                  </span>
-                                  <span>{formatGender(player.gender)}</span>
-                                </div>
-                              </div>
-                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                                <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Select gender">
-                                  {genderOptions.map(option => {
-                                    const isActive = player.gender === option.value;
-                                    return (
-                                      <Button
-                                        key={option.value}
-                                        type="button"
-                                        size="sm"
-                                        role="radio"
-                                        aria-checked={isActive}
-                                        variant={isActive ? 'default' : 'outline'}
-                                        className="h-6 px-2 text-xs"
-                                        onClick={() => updatePlayerGender(player.id, option.value)}>
-                                        {option.label}
-                                      </Button>
-                                    );
-                                  })}
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    role="radio"
-                                    aria-checked={player.gender === 'unspecified'}
-                                    variant={player.gender === 'unspecified' ? 'default' : 'ghost'}
-                                    className="h-6 px-2 text-xs"
-                                    onClick={() => updatePlayerGender(player.id, 'unspecified')}>
-                                    Clear
-                                  </Button>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removePlayer(player.id)}
-                                  className="ml-auto h-6 w-6 p-0 text-red-400 hover:text-red-600 sm:ml-0">
-                                  <X className="h-3 w-3" />
-                                </Button>
+                      <div className="space-y-3">
+                        {players.map(player => (
+                          <div
+                            key={player.id}
+                            className="flex flex-col gap-3 rounded border border-primary/10 bg-orange-50/70 p-3 shadow-sm shadow-orange-200/40 transition hover:border-primary/30 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+                              <span className="font-medium text-sm sm:text-base">{player.name}</span>
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                <span>
+                                  {player.gameCount} {player.gameCount === 1 ? 'game' : 'games'}
+                                </span>
+                                <span>{formatGender(player.gender)}</span>
                               </div>
                             </div>
-                          ))}
-                        </div>
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                              <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Select gender">
+                                {genderOptions.map(option => {
+                                  const isActive = player.gender === option.value;
+                                  return (
+                                    <Button
+                                      key={option.value}
+                                      type="button"
+                                      size="sm"
+                                      role="radio"
+                                      aria-checked={isActive}
+                                      variant={isActive ? 'default' : 'outline'}
+                                      className="h-6 px-2 text-xs"
+                                      onClick={() => updatePlayerGender(player.id, option.value)}>
+                                      {option.label}
+                                    </Button>
+                                  );
+                                })}
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  role="radio"
+                                  aria-checked={player.gender === 'unspecified'}
+                                  variant={player.gender === 'unspecified' ? 'default' : 'ghost'}
+                                  className="h-6 px-2 text-xs"
+                                  onClick={() => updatePlayerGender(player.id, 'unspecified')}>
+                                  Clear
+                                </Button>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removePlayer(player.id)}
+                                className="ml-auto h-6 w-6 p-0 text-red-400 hover:text-red-600 sm:ml-0">
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
-                </CardContent>
-              </Card>
-            </Section>
-            <Section>
-              <Card className="border border-primary/15 bg-white/95 shadow-[0_18px_46px_-18px_rgba(194,104,20,0.35)] backdrop-blur">
-                <CardHeader>
-                  <CardTitle>Game Settings</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-6 mx-auto w-full max-w-3xl">
+                </div>
+              </details>
+
+              <details className="group rounded-2xl border border-primary/15 bg-white/95 shadow-[0_18px_46px_-18px_rgba(194,104,20,0.35)] backdrop-blur">
+                <summary className="flex cursor-pointer select-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold uppercase tracking-[0.25em] text-primary/80">
+                  <span>Game Settings</span>
+                  <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
+                </summary>
+                <div className="px-5 pb-6">
+                  <div className="grid gap-4">
                     <div className="grid gap-3">
                       <Label>Minutes per game</Label>
                       <Input
@@ -725,72 +722,75 @@ export default function Generator() {
                       />
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            </Section>
-            <div className="flex py-5">
-              <Button className="mx-auto" onClick={onGenerateGames} disabled={isGenerating}>
-                Create Games
-              </Button>
+                </div>
+              </details>
             </div>
-          </>
-        ))}
+          </Section>
+          <div className="sticky bottom-6 flex px-6">
+            <Button className="mx-auto w-full max-w-3xl" onClick={onGenerateGames} disabled={isGenerating}>
+              Create Games
+            </Button>
+          </div>
+        </>
+      )}
       {isHistoryOpen && history.length > 0 && currentHistoryEntry && (
-        <div className="fixed inset-0 z-[60] flex">
+        <div className="fixed inset-0 z-[60]">
           <button
             type="button"
             aria-label="Close history panel"
             onClick={closeHistory}
-            className="flex-1 bg-black/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
           />
-          <aside className="relative flex h-full w-full max-w-md flex-col overflow-hidden bg-white shadow-[0_24px_60px_-20px_rgba(194,104,20,0.5)]">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-primary/10 bg-white/95 px-5 py-4">
-              <div>
-                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-primary/70">History</p>
-                <h2 className="text-lg font-semibold text-foreground">Past Runs</h2>
-                <p className="text-xs text-muted-foreground">
-                  {history.length} {history.length === 1 ? 'run saved' : 'runs saved'}
-                </p>
-              </div>
-              <Button variant="ghost" size="icon" onClick={closeHistory} aria-label="Close history drawer">
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-5 py-4">
-              <div className="flex flex-wrap gap-2">
-                {history.map((entry, index) => {
-                  const selected = index === activeHistoryIndex;
-                  const runLabel = `Run ${history.length - index}`;
-                  return (
-                    <button
-                      key={`${entry.generatedAt}-${index}`}
-                      type="button"
-                      onClick={() => setActiveHistoryIndex(index)}
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                        selected
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-primary/20 text-foreground/70 hover:border-primary/40 hover:text-foreground'
-                      }`}>
-                      {runLabel}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="mt-5 space-y-4">
-                <div className="rounded-lg border border-primary/10 bg-orange-50/70 px-4 py-3 shadow-sm shadow-orange-200/25">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
-                      Selected run
-                    </span>
-                    <span className="text-sm font-medium text-foreground/80">
-                      {formatHistoryTimestamp(currentHistoryEntry.generatedAt)}
-                    </span>
-                  </div>
+          <div className="absolute inset-x-0 bottom-0 flex justify-center md:inset-y-0 md:right-0 md:left-auto md:bottom-auto md:justify-end">
+            <aside className="relative flex h-[82vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border-t border-primary/10 bg-white shadow-[0_24px_60px_-20px_rgba(194,104,20,0.5)] transition-transform md:h-full md:max-w-md md:rounded-none md:border-l">
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-primary/10 bg-white/95 px-5 py-4">
+                <div>
+                  <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-primary/70">History</p>
+                  <h2 className="text-lg font-semibold text-foreground">Past Runs</h2>
+                  <p className="text-xs text-muted-foreground">
+                    {history.length} {history.length === 1 ? 'run saved' : 'runs saved'}
+                  </p>
                 </div>
-                <HistoryRun games={currentHistoryEntry.games} />
+                <Button variant="ghost" size="icon" onClick={closeHistory} aria-label="Close history drawer">
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-            </div>
-          </aside>
+              <div className="flex-1 overflow-y-auto px-5 py-4">
+                <div className="flex flex-wrap gap-2">
+                  {history.map((entry, index) => {
+                    const selected = index === activeHistoryIndex;
+                    const runLabel = `Run ${history.length - index}`;
+                    return (
+                      <button
+                        key={`${entry.generatedAt}-${index}`}
+                        type="button"
+                        onClick={() => setActiveHistoryIndex(index)}
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                          selected
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-primary/20 text-foreground/70 hover:border-primary/40 hover:text-foreground'
+                        }`}>
+                        {runLabel}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-5 space-y-4">
+                  <div className="rounded-lg border border-primary/10 bg-orange-50/70 px-4 py-3 shadow-sm shadow-orange-200/25">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
+                        Selected run
+                      </span>
+                      <span className="text-sm font-medium text-foreground/80">
+                        {formatHistoryTimestamp(currentHistoryEntry.generatedAt)}
+                      </span>
+                    </div>
+                  </div>
+                  <HistoryRun games={currentHistoryEntry.games} />
+                </div>
+              </div>
+            </aside>
+          </div>
         </div>
       )}
       {isGenerating && (
