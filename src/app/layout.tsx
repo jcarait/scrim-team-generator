@@ -13,7 +13,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`antialiased`}>{children}</body>
+      <body className="min-h-screen bg-[radial-gradient(circle_at_20%_20%,_#fff4e5_0%,_#ffffff_45%,_#f3f0ff_100%)] text-foreground antialiased">
+        {children}
+      </body>
     </html>
   );
 }

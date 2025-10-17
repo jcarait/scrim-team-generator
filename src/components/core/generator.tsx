@@ -1,7 +1,7 @@
 'use client';
 
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import Section from '@/components/layout/section';
 import GameCards from '@/components/core/game-cards';
@@ -80,6 +80,11 @@ export default function Generator() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [rawPlayerInput, setRawPlayerInput] = useState<string>('');
   const [maxConsecutiveGames, setMaxConsecutiveGames] = useState<string>('2');
+  const [restMinutes, setRestMinutes] = useState<string>('0');
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+
+  const generationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingResultRef = useRef<{ games: Game[]; players: Player[] } | null>(null);
 
   function shuffleCopy<T>(a: T[]): T[] {
     const copy = a.slice();
@@ -299,6 +304,15 @@ export default function Generator() {
     return { games: outGames, players: queue }; // queue order = who’s up next / final state
   }
 
+  useEffect(() => {
+    return () => {
+      if (generationTimeoutRef.current) {
+        clearTimeout(generationTimeoutRef.current);
+        generationTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const onGenerateGames = () => {
     const sessions = calculateNumberOfSessions();
 
@@ -322,22 +336,47 @@ export default function Generator() {
     const parsedLimit = parseInt(maxConsecutiveGames, 10);
     const consecutiveLimit = Number.isNaN(parsedLimit) ? 0 : Math.max(0, parsedLimit);
 
-    const { games: built, players: finalQueue } = generateAllGames(playerReset, sessions, consecutiveLimit);
-    setGames(built);
-    setPlayers(finalQueue.sort((a, b) => a.name.localeCompare(b.name)));
+    if (generationTimeoutRef.current) {
+      clearTimeout(generationTimeoutRef.current);
+      generationTimeoutRef.current = null;
+    }
 
-    window.scrollTo({ top: 5, behavior: 'smooth' });
+    setIsGenerating(true);
+
+    const { games: built, players: finalQueue } = generateAllGames(playerReset, sessions, consecutiveLimit);
+    const sortedPlayers = finalQueue.slice().sort((a, b) => a.name.localeCompare(b.name));
+
+    pendingResultRef.current = { games: built, players: sortedPlayers };
+
+    generationTimeoutRef.current = setTimeout(() => {
+      const pending = pendingResultRef.current;
+      if (pending) {
+        setGames(pending.games);
+        setPlayers(pending.players);
+        pendingResultRef.current = null;
+        window.scrollTo({ top: 5, behavior: 'smooth' });
+      }
+      setIsGenerating(false);
+      generationTimeoutRef.current = null;
+    }, 1500);
   };
 
   const calculateNumberOfSessions = (): number => {
     const minutesPerSession = parseInt(gameMinutes, 10) || 0;
     const totalMinutes = parseInt(totalSessionMinutes, 10) || 0;
+    const restPerGame = Math.max(0, parseInt(restMinutes, 10) || 0);
 
     if (minutesPerSession <= 0 || totalMinutes <= 0) {
       return 0; // Invalid input
     }
 
-    return Math.floor(totalMinutes / minutesPerSession);
+    const block = minutesPerSession + restPerGame;
+
+    if (block <= 0) {
+      return 0;
+    }
+
+    return Math.floor((totalMinutes + restPerGame) / block);
   };
 
   const handleAddPlayers = (): void => {
@@ -400,17 +439,37 @@ export default function Generator() {
 
   return (
     <>
+      {isGenerating && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-background/80 backdrop-blur-sm"
+          role="status"
+          aria-live="polite"
+          aria-busy="true">
+          <div className="flex flex-col items-center gap-2" aria-hidden="true">
+            <div className="basketball-wrapper">
+              <div className="basketball">
+                <span className="basketball-stripe stripe-vertical stripe-left" />
+                <span className="basketball-stripe stripe-vertical stripe-right" />
+                <span className="basketball-stripe stripe-horizontal stripe-top" />
+                <span className="basketball-stripe stripe-horizontal stripe-bottom" />
+              </div>
+            </div>
+            <div className="basketball-shadow" />
+          </div>
+          <p className="text-sm font-medium text-muted-foreground">Building balanced teams...</p>
+        </div>
+      )}
       {/* ========= GAME SETTINGS =========*/}
       {!games ||
         (games.length < 1 && (
           <>
             <Section>
-              <Card>
+              <Card className="border border-primary/15 bg-white/95 shadow-[0_18px_46px_-18px_rgba(194,104,20,0.35)] backdrop-blur">
                 <CardHeader>
                   <CardTitle className="row-start-1 row-span-2">Players</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-8 mx-auto">
+                  <div className="grid gap-6 mx-auto w-full max-w-3xl">
                     <div className="grid gap-3">
                       <Label htmlFor="player-input">Add Players</Label>
                       <Textarea
@@ -425,7 +484,7 @@ export default function Generator() {
                         Tip: separate names with commas or line breaks—either format works.
                       </p>
                     </div>
-                    <Button onClick={handleAddPlayers}>
+                    <Button className="w-full sm:w-auto" onClick={handleAddPlayers}>
                       <CirclePlus />
                       Add Players
                     </Button>
@@ -433,18 +492,22 @@ export default function Generator() {
                       <div className="space-y-2">
                         <Label>Players ({players.length})</Label>
                         {/*<div className="space-y-1 max-h-48 overflow-y-auto">*/}
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           {players.map(player => (
-                            <div key={player.id} className="flex items-center justify-between bg-white p-2 rounded border">
-                              <div className="flex items-center gap-3">
-                                <span className="font-medium text-sm">{player.name}</span>
-                                <span className="text-xs text-gray-500">
-                                  {player.gameCount} {player.gameCount === 1 ? 'game' : 'games'}
-                                </span>
-                                <span className="text-xs text-gray-500">{formatGender(player.gender)}</span>
+                            <div
+                              key={player.id}
+                              className="flex flex-col gap-3 rounded border border-primary/10 bg-orange-50/70 p-3 shadow-sm shadow-orange-200/40 transition hover:border-primary/30 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+                                <span className="font-medium text-sm sm:text-base">{player.name}</span>
+                                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                  <span>
+                                    {player.gameCount} {player.gameCount === 1 ? 'game' : 'games'}
+                                  </span>
+                                  <span>{formatGender(player.gender)}</span>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-1">
-                                <div className="flex gap-1" role="radiogroup" aria-label="Select gender">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                                <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Select gender">
                                   {genderOptions.map(option => {
                                     const isActive = player.gender === option.value;
                                     return (
@@ -476,7 +539,7 @@ export default function Generator() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => removePlayer(player.id)}
-                                  className="h-6 w-6 p-0 text-red-400 hover:text-red-600 ml-1">
+                                  className="ml-auto h-6 w-6 p-0 text-red-400 hover:text-red-600 sm:ml-0">
                                   <X className="h-3 w-3" />
                                 </Button>
                               </div>
@@ -490,12 +553,12 @@ export default function Generator() {
               </Card>
             </Section>
             <Section>
-              <Card>
+              <Card className="border border-primary/15 bg-white/95 shadow-[0_18px_46px_-18px_rgba(194,104,20,0.35)] backdrop-blur">
                 <CardHeader>
                   <CardTitle>Game Settings</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-8 mx-auto">
+                  <div className="grid gap-6 mx-auto w-full max-w-3xl">
                     <div className="grid gap-3">
                       <Label>Minutes per game</Label>
                       <Input
@@ -503,6 +566,7 @@ export default function Generator() {
                         value={gameMinutes ?? undefined}
                         onChange={e => setGameMinutes(e.target.value)}
                         placeholder="e.g. 10 for 10 minutes"
+                        className="w-full"
                       />
                     </div>
                     <div className="grid gap-3">
@@ -512,6 +576,18 @@ export default function Generator() {
                         value={totalSessionMinutes ?? undefined}
                         onChange={e => setTotalSessionMinutes(e.target.value)}
                         placeholder="e.g. 120 for 120 minutes"
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="grid gap-3">
+                      <Label>Rest between games (minutes)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={restMinutes ?? undefined}
+                        onChange={e => setRestMinutes(e.target.value)}
+                        placeholder="e.g. 2"
+                        className="w-full"
                       />
                     </div>
                     <div className="grid gap-3">
@@ -522,6 +598,7 @@ export default function Generator() {
                         value={maxConsecutiveGames ?? undefined}
                         onChange={e => setMaxConsecutiveGames(e.target.value)}
                         placeholder="e.g. 2"
+                        className="w-full"
                       />
                     </div>
                   </div>
