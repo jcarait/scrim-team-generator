@@ -7,7 +7,13 @@ import Section from '@/components/layout/section';
 import GameCards from '@/components/core/game-cards';
 import HistoryRun from '@/components/core/history-run';
 import { Textarea } from '@/components/ui/textarea';
-import { ChevronDown, CirclePlus, History, X } from 'lucide-react';
+import {
+  CardAccordion,
+  CardAccordionContent,
+  CardAccordionItem,
+  CardAccordionTrigger,
+} from '@/components/layout/card-accordion';
+import { CirclePlus, History, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export type Game = {
@@ -586,144 +592,144 @@ export default function Generator() {
       {games.length < 1 && (
         <>
           <Section>
-            <div className="mx-auto w-full max-w-3xl space-y-4">
-              <details className="group rounded-2xl border border-primary/15 bg-white/95 shadow-[0_18px_46px_-18px_rgba(194,104,20,0.35)] backdrop-blur" open>
-                <summary className="flex cursor-pointer select-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold uppercase tracking-[0.25em] text-primary/80">
-                  <span>Players ({players.length})</span>
-                  <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
-                </summary>
-                <div className="px-5 pb-6">
-                  <div className="space-y-4">
-                    <div className="grid gap-3">
-                      <Label htmlFor="player-input">Add Players</Label>
-                      <Textarea
-                        id="player-input"
-                        value={rawPlayerInput}
-                        onChange={e => {
-                          setRawPlayerInput(e.target.value);
-                        }}
-                        placeholder={`Type names separated by comma (e.g. John, Bob, Jane, Doe) or line breaks: \n John \n Bob \n Jane \n Doe`}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Tip: separate names with commas or line breaks—either format works.
-                      </p>
-                    </div>
-                    <Button className="w-full sm:w-auto" onClick={handleAddPlayers}>
-                      <CirclePlus />
-                      Add Players
-                    </Button>
-                    {players.length > 0 && (
-                      <div className="space-y-3">
-                        {players.map(player => (
-                          <div
-                            key={player.id}
-                            className="flex flex-col gap-3 rounded border border-primary/10 bg-orange-50/70 p-3 shadow-sm shadow-orange-200/40 transition hover:border-primary/30 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
-                              <span className="font-medium text-sm sm:text-base">{player.name}</span>
-                              <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                                <span>
-                                  {player.gameCount} {player.gameCount === 1 ? 'game' : 'games'}
-                                </span>
-                                <span>{formatGender(player.gender)}</span>
+            <div className="mx-auto w-full max-w-3xl">
+              <CardAccordion type="multiple" defaultValue={['players']} className="space-y-4">
+                <CardAccordionItem value="players">
+                  <CardAccordionTrigger>
+                    <span>Players ({players.length})</span>
+                  </CardAccordionTrigger>
+                  <CardAccordionContent>
+                    <div className="space-y-4">
+                      <div className="grid gap-3">
+                        <Label htmlFor="player-input">Add Players</Label>
+                        <Textarea
+                          id="player-input"
+                          value={rawPlayerInput}
+                          onChange={e => {
+                            setRawPlayerInput(e.target.value);
+                          }}
+                          placeholder={`Type names separated by comma (e.g. John, Bob, Jane, Doe) or line breaks: \n John \n Bob \n Jane \n Doe`}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Tip: separate names with commas or line breaks—either format works.
+                        </p>
+                      </div>
+                      <Button className="w-full sm:w-auto" onClick={handleAddPlayers}>
+                        <CirclePlus />
+                        Add Players
+                      </Button>
+                      {players.length > 0 && (
+                        <div className="space-y-3">
+                          {players.map(player => (
+                            <div
+                              key={player.id}
+                              className="flex flex-col gap-3 rounded border border-primary/10 bg-orange-50/70 p-3 shadow-sm shadow-orange-200/40 transition hover:border-primary/30 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+                                <span className="font-medium text-sm sm:text-base">{player.name}</span>
+                                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                  <span>
+                                    {player.gameCount} {player.gameCount === 1 ? 'game' : 'games'}
+                                  </span>
+                                  <span>{formatGender(player.gender)}</span>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                              <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Select gender">
-                                {genderOptions.map(option => {
-                                  const isActive = player.gender === option.value;
-                                  return (
-                                    <Button
-                                      key={option.value}
-                                      type="button"
-                                      size="sm"
-                                      role="radio"
-                                      aria-checked={isActive}
-                                      variant={isActive ? 'default' : 'outline'}
-                                      className="h-6 px-2 text-xs"
-                                      onClick={() => updatePlayerGender(player.id, option.value)}>
-                                      {option.label}
-                                    </Button>
-                                  );
-                                })}
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                                <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Select gender">
+                                  {genderOptions.map(option => {
+                                    const isActive = player.gender === option.value;
+                                    return (
+                                      <Button
+                                        key={option.value}
+                                        type="button"
+                                        size="sm"
+                                        role="radio"
+                                        aria-checked={isActive}
+                                        variant={isActive ? 'default' : 'outline'}
+                                        className="h-6 px-2 text-xs"
+                                        onClick={() => updatePlayerGender(player.id, option.value)}>
+                                        {option.label}
+                                      </Button>
+                                    );
+                                  })}
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    role="radio"
+                                    aria-checked={player.gender === 'unspecified'}
+                                    variant={player.gender === 'unspecified' ? 'default' : 'ghost'}
+                                    className="h-6 px-2 text-xs"
+                                    onClick={() => updatePlayerGender(player.id, 'unspecified')}>
+                                    Clear
+                                  </Button>
+                                </div>
                                 <Button
-                                  type="button"
+                                  variant="ghost"
                                   size="sm"
-                                  role="radio"
-                                  aria-checked={player.gender === 'unspecified'}
-                                  variant={player.gender === 'unspecified' ? 'default' : 'ghost'}
-                                  className="h-6 px-2 text-xs"
-                                  onClick={() => updatePlayerGender(player.id, 'unspecified')}>
-                                  Clear
+                                  onClick={() => removePlayer(player.id)}
+                                  className="ml-auto h-6 w-6 p-0 text-red-400 hover:text-red-600 sm:ml-0">
+                                  <X className="h-3 w-3" />
                                 </Button>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removePlayer(player.id)}
-                                className="ml-auto h-6 w-6 p-0 text-red-400 hover:text-red-600 sm:ml-0">
-                                <X className="h-3 w-3" />
-                              </Button>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </details>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </CardAccordionContent>
+                </CardAccordionItem>
 
-              <details className="group rounded-2xl border border-primary/15 bg-white/95 shadow-[0_18px_46px_-18px_rgba(194,104,20,0.35)] backdrop-blur">
-                <summary className="flex cursor-pointer select-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold uppercase tracking-[0.25em] text-primary/80">
-                  <span>Game Settings</span>
-                  <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
-                </summary>
-                <div className="px-5 pb-6">
-                  <div className="grid gap-4">
-                    <div className="grid gap-3">
-                      <Label>Minutes per game</Label>
-                      <Input
-                        type="number"
-                        value={gameMinutes ?? undefined}
-                        onChange={e => setGameMinutes(e.target.value)}
-                        placeholder="e.g. 10 for 10 minutes"
-                        className="w-full"
-                      />
+                <CardAccordionItem value="game-settings">
+                  <CardAccordionTrigger>
+                    <span>Game Settings</span>
+                  </CardAccordionTrigger>
+                  <CardAccordionContent>
+                    <div className="grid gap-4">
+                      <div className="grid gap-3">
+                        <Label>Minutes per game</Label>
+                        <Input
+                          type="number"
+                          value={gameMinutes ?? undefined}
+                          onChange={e => setGameMinutes(e.target.value)}
+                          placeholder="e.g. 10 for 10 minutes"
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="grid gap-3">
+                        <Label>Total scrimmage duration (minutes)</Label>
+                        <Input
+                          type="number"
+                          value={totalSessionMinutes ?? undefined}
+                          onChange={e => setTotalSessionMinutes(e.target.value)}
+                          placeholder="e.g. 120 for 120 minutes"
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="grid gap-3">
+                        <Label>Rest between games (minutes)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={restMinutes ?? undefined}
+                          onChange={e => setRestMinutes(e.target.value)}
+                          placeholder="e.g. 2"
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="grid gap-3">
+                        <Label>Max consecutive games before rest</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={maxConsecutiveGames ?? undefined}
+                          onChange={e => setMaxConsecutiveGames(e.target.value)}
+                          placeholder="e.g. 2"
+                          className="w-full"
+                        />
+                      </div>
                     </div>
-                    <div className="grid gap-3">
-                      <Label>Total scrimmage duration (minutes)</Label>
-                      <Input
-                        type="number"
-                        value={totalSessionMinutes ?? undefined}
-                        onChange={e => setTotalSessionMinutes(e.target.value)}
-                        placeholder="e.g. 120 for 120 minutes"
-                        className="w-full"
-                      />
-                    </div>
-                    <div className="grid gap-3">
-                      <Label>Rest between games (minutes)</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={restMinutes ?? undefined}
-                        onChange={e => setRestMinutes(e.target.value)}
-                        placeholder="e.g. 2"
-                        className="w-full"
-                      />
-                    </div>
-                    <div className="grid gap-3">
-                      <Label>Max consecutive games before rest</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={maxConsecutiveGames ?? undefined}
-                        onChange={e => setMaxConsecutiveGames(e.target.value)}
-                        placeholder="e.g. 2"
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </details>
+                  </CardAccordionContent>
+                </CardAccordionItem>
+              </CardAccordion>
             </div>
           </Section>
           <div className="sticky bottom-6 flex px-6">
