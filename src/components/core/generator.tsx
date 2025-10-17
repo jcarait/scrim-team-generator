@@ -37,7 +37,7 @@ type Team = {
 const PLAYERS_PER_GAME = 10;
 const TEAMS = 2;
 const HISTORY_STORAGE_KEY = 'scrim-team-history';
-const MAX_HISTORY_ENTRIES = 12;
+const MAX_HISTORY_ENTRIES = 10;
 
 // const initialPlayers = ['Jono', 'Gel', 'Matt', 'Raimie', 'Qwayne', 'El', 'John', 'Mark', 'Matthew', 'Luke', 'Thad', 'Chad', 'Esther', 'Jude', 'Paul'];
 //
