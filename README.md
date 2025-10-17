@@ -16,7 +16,7 @@ bun dev
 
 ## Deploying to GitHub Pages
 
-The repo ships with a workflow at `.github/workflows/deploy-pages.yml` that builds and deploys the statically exported site from the `out/` directory whenever you push to `main`. Set a repository variable named `NEXT_PUBLIC_BASE_PATH` to your repository name (for example `scrim-team-generator`) if the Pages site will live under `https://<user>.github.io/<repo>`, so links load correctly.
+The repo ships with a workflow at `.github/workflows/deploy-pages.yml` that builds and deploys the statically exported site from the `out/` directory whenever you push to `main`. When the build runs on GitHub Actions the base path is inferred from the repository name (skipping `<user>.github.io` repos so root sites still render at `/`) so assets load correctly at `https://<user>.github.io/<repo>`. If you ever need to override it, set a repository variable named `NEXT_PUBLIC_BASE_PATH`.
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
