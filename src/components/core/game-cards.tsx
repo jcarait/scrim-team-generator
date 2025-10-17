@@ -9,7 +9,7 @@ type GameCardsProps = {
 export default function GameCards({ games }: GameCardsProps) {
   return (
     <Section>
-      <div className="grid gap-4 px-4 sm:grid-cols-2 md:grid-cols-3" id="game-cards-section">
+      <div className="grid gap-4 px-4 sm:grid-cols-2 xl:grid-cols-3" id="game-cards-section">
         {games.map(game => (
           <Card
             key={game.id}
@@ -20,20 +20,36 @@ export default function GameCards({ games }: GameCardsProps) {
                 <span className="text-sm text-muted-foreground">ID: {game.id}</span>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               {game.teams.map(team => {
                 return (
-                  <div key={team.id} className="mb-4 rounded-lg bg-orange-50/60 p-3">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-primary/90">{team.name}</h3>
-                    <p className="mt-1 text-sm text-foreground/80">
-                      {team.players
-                        .map(player => {
-                          if (player.gender === 'male') return `${player.name} (M)`;
-                          if (player.gender === 'female') return `${player.name} (F)`;
-                          return player.name;
-                        })
-                        .join(', ')}
-                    </p>
+                  <div key={team.id} className="rounded-lg border border-primary/10 bg-orange-50/60 p-3 shadow-sm shadow-orange-200/20">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-primary/90">{team.name}</h3>
+                      <span className="text-xs font-medium text-primary/70">Players: {team.players.length}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {team.players.map(player => {
+                        const genderSuffix = player.gender === 'male' ? 'M' : player.gender === 'female' ? 'F' : null;
+                        return (
+                          <span
+                            key={player.id}
+                            className="flex items-center gap-1 rounded-full border border-primary/20 bg-white/80 px-3 py-1 text-xs font-medium text-foreground/80 shadow-sm">
+                            <span>{player.name}</span>
+                            {genderSuffix && (
+                              <span
+                                className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-semibold ${
+                                  genderSuffix === 'M'
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'bg-rose-100 text-rose-700'
+                                }`}>
+                                {genderSuffix}
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })}
