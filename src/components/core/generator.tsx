@@ -6,8 +6,9 @@ import { Label } from '@/components/ui/label';
 import Section from '@/components/layout/section';
 import GameCards from '@/components/core/game-cards';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import HistoryRun from '@/components/core/history-run';
 import { Textarea } from '@/components/ui/textarea';
-import { CirclePlus, X } from 'lucide-react';
+import { CirclePlus, History, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export type Game = {
@@ -35,6 +36,8 @@ type Team = {
 
 const PLAYERS_PER_GAME = 10;
 const TEAMS = 2;
+const HISTORY_STORAGE_KEY = 'scrim-team-history';
+const MAX_HISTORY_ENTRIES = 12;
 
 // const initialPlayers = ['Jono', 'Gel', 'Matt', 'Raimie', 'Qwayne', 'El', 'John', 'Mark', 'Matthew', 'Luke', 'Thad', 'Chad', 'Esther', 'Jude', 'Paul'];
 //
@@ -77,14 +80,23 @@ export default function Generator() {
   const [totalSessionMinutes, setTotalSessionMinutes] = useState<string>('');
   const [gameMinutes, setGameMinutes] = useState<string>('');
   const [games, setGames] = useState<Game[]>([]);
+  const [history, setHistory] = useState<
+    {
+      generatedAt: string;
+      games: Game[];
+    }[]
+  >([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [rawPlayerInput, setRawPlayerInput] = useState<string>('');
   const [maxConsecutiveGames, setMaxConsecutiveGames] = useState<string>('2');
   const [restMinutes, setRestMinutes] = useState<string>('0');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
+  const [activeHistoryIndex, setActiveHistoryIndex] = useState<number>(0);
 
   const generationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingResultRef = useRef<{ games: Game[]; players: Player[] } | null>(null);
+  const historyStorageReadyRef = useRef<boolean>(false);
 
   function shuffleCopy<T>(a: T[]): T[] {
     const copy = a.slice();
@@ -313,6 +325,64 @@ export default function Generator() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = window.localStorage.getItem(HISTORY_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          const limited = parsed.slice(0, MAX_HISTORY_ENTRIES);
+          setHistory(limited);
+          if (limited.length > 0) {
+            setGames(limited[0]?.games ?? []);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load saved history', error);
+    } finally {
+      historyStorageReadyRef.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!historyStorageReadyRef.current || typeof window === 'undefined') return;
+    try {
+      if (history.length === 0) {
+        window.localStorage.removeItem(HISTORY_STORAGE_KEY);
+        return;
+      }
+      window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history.slice(0, MAX_HISTORY_ENTRIES)));
+    } catch (error) {
+      console.error('Failed to persist history', error);
+    }
+  }, [history]);
+
+  useEffect(() => {
+    if (history.length === 0) {
+      setIsHistoryOpen(false);
+      setActiveHistoryIndex(0);
+      return;
+    }
+    if (activeHistoryIndex >= history.length) {
+      setActiveHistoryIndex(0);
+    }
+  }, [history, activeHistoryIndex]);
+
+  useEffect(() => {
+    if (!isHistoryOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeHistory();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isHistoryOpen]);
+
   const onGenerateGames = () => {
     if (isGenerating) return;
 
@@ -353,7 +423,19 @@ export default function Generator() {
     generationTimeoutRef.current = setTimeout(() => {
       const pending = pendingResultRef.current;
       if (pending) {
+        const generatedAt = new Date().toISOString();
         setGames(pending.games);
+        setHistory(prev => {
+          const updated = [
+            {
+              generatedAt,
+              games: pending.games,
+            },
+            ...prev,
+          ];
+          return updated.slice(0, MAX_HISTORY_ENTRIES);
+        });
+        setActiveHistoryIndex(0);
         setPlayers(pending.players);
         pendingResultRef.current = null;
         window.scrollTo({ top: 5, behavior: 'smooth' });
@@ -436,6 +518,8 @@ export default function Generator() {
     pendingResultRef.current = null;
     setIsGenerating(false);
     setGames([]);
+    setIsHistoryOpen(false);
+    setActiveHistoryIndex(0);
     setPlayers([]);
     setRawPlayerInput('');
     setGameMinutes('');
@@ -444,6 +528,8 @@ export default function Generator() {
     setRestMinutes('0');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const historyCount = history.length;
 
   const genderOptions: { label: string; value: Gender }[] = [
     { label: 'Male', value: 'male' },
@@ -456,29 +542,48 @@ export default function Generator() {
     return 'Not set';
   };
 
+  const formatHistoryTimestamp = (iso: string): string => {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+      return 'Unknown date';
+    }
+    return date.toLocaleString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const openHistory = () => {
+    if (history.length === 0) return;
+    setActiveHistoryIndex(0);
+    setIsHistoryOpen(true);
+  };
+
+  const closeHistory = () => {
+    setIsHistoryOpen(false);
+  };
+
+  const currentHistoryEntry = history[activeHistoryIndex];
+
   return (
     <>
-      {isGenerating && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-background/80 backdrop-blur-sm"
-          role="status"
-          aria-live="polite"
-          aria-busy="true">
-          <div className="flex flex-col items-center gap-2" aria-hidden="true">
-            <div className="basketball-wrapper">
-              <div className="basketball">
-                <span className="basketball-stripe stripe-vertical stripe-left" />
-                <span className="basketball-stripe stripe-vertical stripe-right" />
-                <span className="basketball-stripe stripe-horizontal stripe-top" />
-                <span className="basketball-stripe stripe-horizontal stripe-bottom" />
-              </div>
-            </div>
-            <div className="basketball-shadow" />
-          </div>
-          <p className="text-sm font-medium text-muted-foreground">Building balanced teams...</p>
+      <div className="w-full bg-white/70 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-5xl items-center justify-center px-6 py-4">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={openHistory}
+            disabled={isGenerating || historyCount === 0}>
+            <History className="mr-2 h-4 w-4" />
+            <span>History</span>
+            {historyCount > 0 && <span className="ml-1">({historyCount})</span>}
+          </Button>
         </div>
-      )}
-      {/* ========= GAME SETTINGS =========*/}
+      </div>
       {!games ||
         (games.length < 1 && (
           <>
@@ -510,7 +615,6 @@ export default function Generator() {
                     {players.length > 0 && (
                       <div className="space-y-2">
                         <Label>Players ({players.length})</Label>
-                        {/*<div className="space-y-1 max-h-48 overflow-y-auto">*/}
                         <div className="space-y-2">
                           {players.map(player => (
                             <div
@@ -625,13 +729,99 @@ export default function Generator() {
               </Card>
             </Section>
             <div className="flex py-5">
-              <Button className="mx-auto" onClick={onGenerateGames}>
+              <Button className="mx-auto" onClick={onGenerateGames} disabled={isGenerating}>
                 Create Games
               </Button>
             </div>
           </>
         ))}
-      {games.length > 0 && <GameCards games={games} onRegenerate={onGenerateGames} onReset={resetSession} />}
+      {isHistoryOpen && history.length > 0 && currentHistoryEntry && (
+        <div className="fixed inset-0 z-[60] flex">
+          <button
+            type="button"
+            aria-label="Close history panel"
+            onClick={closeHistory}
+            className="flex-1 bg-black/40 backdrop-blur-sm"
+          />
+          <aside className="relative flex h-full w-full max-w-md flex-col overflow-hidden bg-white shadow-[0_24px_60px_-20px_rgba(194,104,20,0.5)]">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-primary/10 bg-white/95 px-5 py-4">
+              <div>
+                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-primary/70">History</p>
+                <h2 className="text-lg font-semibold text-foreground">Past Runs</h2>
+                <p className="text-xs text-muted-foreground">
+                  {history.length} {history.length === 1 ? 'run saved' : 'runs saved'}
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={closeHistory} aria-label="Close history drawer">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <div className="flex flex-wrap gap-2">
+                {history.map((entry, index) => {
+                  const selected = index === activeHistoryIndex;
+                  const runLabel = `Run ${history.length - index}`;
+                  return (
+                    <button
+                      key={`${entry.generatedAt}-${index}`}
+                      type="button"
+                      onClick={() => setActiveHistoryIndex(index)}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                        selected
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-primary/20 text-foreground/70 hover:border-primary/40 hover:text-foreground'
+                      }`}>
+                      {runLabel}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-5 space-y-4">
+                <div className="rounded-lg border border-primary/10 bg-orange-50/70 px-4 py-3 shadow-sm shadow-orange-200/25">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
+                      Selected run
+                    </span>
+                    <span className="text-sm font-medium text-foreground/80">
+                      {formatHistoryTimestamp(currentHistoryEntry.generatedAt)}
+                    </span>
+                  </div>
+                </div>
+                <HistoryRun games={currentHistoryEntry.games} />
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
+      {isGenerating && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-background/80 backdrop-blur-sm"
+          role="status"
+          aria-live="polite"
+          aria-busy="true">
+          <div className="flex flex-col items-center gap-2" aria-hidden="true">
+            <div className="basketball-wrapper">
+              <div className="basketball">
+                <span className="basketball-stripe stripe-vertical stripe-left" />
+                <span className="basketball-stripe stripe-vertical stripe-right" />
+                <span className="basketball-stripe stripe-horizontal stripe-top" />
+                <span className="basketball-stripe stripe-horizontal stripe-bottom" />
+              </div>
+            </div>
+            <div className="basketball-shadow" />
+          </div>
+          <p className="text-sm font-medium text-muted-foreground">Building balanced teams...</p>
+        </div>
+      )}
+      {/* ========= GAME SETTINGS =========*/}
+      {games.length > 0 && (
+        <GameCards
+          games={games}
+          onRegenerate={onGenerateGames}
+          onReset={resetSession}
+          isGenerating={isGenerating}
+        />
+      )}
     </>
   );
 }

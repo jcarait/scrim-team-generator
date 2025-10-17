@@ -7,9 +7,15 @@ type GameCardsProps = {
   games: Game[];
   onRegenerate: () => void;
   onReset: () => void;
+  isGenerating: boolean;
 };
 
-export default function GameCards({ games, onRegenerate, onReset }: GameCardsProps) {
+export default function GameCards({
+  games,
+  onRegenerate,
+  onReset,
+  isGenerating,
+}: GameCardsProps) {
   return (
     <Section>
       <div className="mb-4 flex flex-col items-stretch gap-3 px-4 sm:flex-row sm:items-center sm:justify-between">
@@ -17,11 +23,11 @@ export default function GameCards({ games, onRegenerate, onReset }: GameCardsPro
           <h2 className="text-xl font-semibold text-foreground sm:text-2xl">Game Plan</h2>
           <p className="text-sm text-muted-foreground">Balanced matchups ready to go—shuffle again anytime.</p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button variant="outline" className="sm:w-auto" onClick={onReset}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Button variant="outline" className="sm:w-auto" onClick={onReset} disabled={isGenerating}>
             Start Over
           </Button>
-          <Button className="sm:w-auto" onClick={onRegenerate}>
+          <Button className="sm:w-auto" onClick={onRegenerate} disabled={isGenerating}>
             Shuffle Teams
           </Button>
         </div>

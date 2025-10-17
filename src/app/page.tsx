@@ -2,7 +2,7 @@ import Generator from '@/components/core/generator';
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center pb-16">
+    <>
       <header className="w-full pt-12 pb-8">
         <div className="mx-auto flex max-w-4xl flex-col items-center gap-3 px-6 text-center">
           <span className="rounded-full bg-primary/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
@@ -16,7 +16,9 @@ export default function Home() {
           </p>
         </div>
       </header>
-      <Generator />
-    </main>
+      <main className="flex min-h-screen flex-col items-center pb-16">
+        <Generator />
+      </main>
+    </>
   );
 }
