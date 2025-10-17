@@ -1,14 +1,31 @@
 import Section from '@/components/layout/section';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Game } from '@/components/core/generator';
+import { Button } from '@/components/ui/button';
 
 type GameCardsProps = {
   games: Game[];
+  onRegenerate: () => void;
+  onReset: () => void;
 };
 
-export default function GameCards({ games }: GameCardsProps) {
+export default function GameCards({ games, onRegenerate, onReset }: GameCardsProps) {
   return (
     <Section>
+      <div className="mb-4 flex flex-col items-stretch gap-3 px-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-left">
+          <h2 className="text-xl font-semibold text-foreground sm:text-2xl">Game Plan</h2>
+          <p className="text-sm text-muted-foreground">Balanced matchups ready to go—shuffle again anytime.</p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button variant="outline" className="sm:w-auto" onClick={onReset}>
+            Start Over
+          </Button>
+          <Button className="sm:w-auto" onClick={onRegenerate}>
+            Shuffle Teams
+          </Button>
+        </div>
+      </div>
       <div className="grid gap-4 px-4 sm:grid-cols-2 xl:grid-cols-3" id="game-cards-section">
         {games.map(game => (
           <Card

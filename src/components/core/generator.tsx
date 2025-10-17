@@ -314,6 +314,8 @@ export default function Generator() {
   }, []);
 
   const onGenerateGames = () => {
+    if (isGenerating) return;
+
     const sessions = calculateNumberOfSessions();
 
     const playerReset = players.map(p => ({
@@ -424,6 +426,23 @@ export default function Generator() {
 
   const removePlayer = (id: string): void => {
     setPlayers(prev => prev.filter(p => p.id !== id));
+  };
+
+  const resetSession = () => {
+    if (generationTimeoutRef.current) {
+      clearTimeout(generationTimeoutRef.current);
+      generationTimeoutRef.current = null;
+    }
+    pendingResultRef.current = null;
+    setIsGenerating(false);
+    setGames([]);
+    setPlayers([]);
+    setRawPlayerInput('');
+    setGameMinutes('');
+    setTotalSessionMinutes('');
+    setMaxConsecutiveGames('2');
+    setRestMinutes('0');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const genderOptions: { label: string; value: Gender }[] = [
@@ -612,7 +631,7 @@ export default function Generator() {
             </div>
           </>
         ))}
-      {games.length > 0 && <GameCards games={games} />}
+      {games.length > 0 && <GameCards games={games} onRegenerate={onGenerateGames} onReset={resetSession} />}
     </>
   );
 }
