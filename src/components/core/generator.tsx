@@ -421,6 +421,9 @@ export default function Generator() {
                         }}
                         placeholder={`Type names separated by comma (e.g. John, Bob, Jane, Doe) or line breaks: \n John \n Bob \n Jane \n Doe`}
                       />
+                      <p className="text-xs text-muted-foreground">
+                        Tip: separate names with commas or line breaks—either format works.
+                      </p>
                     </div>
                     <Button onClick={handleAddPlayers}>
                       <CirclePlus />
