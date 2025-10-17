@@ -14,6 +14,10 @@ pnpm dev
 bun dev
 ```
 
+## Deploying to GitHub Pages
+
+The repo ships with a workflow at `.github/workflows/deploy-pages.yml` that builds and deploys the statically exported site from the `out/` directory whenever you push to `main`. Set a repository variable named `NEXT_PUBLIC_BASE_PATH` to your repository name (for example `scrim-team-generator`) if the Pages site will live under `https://<user>.github.io/<repo>`, so links load correctly.
+
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
